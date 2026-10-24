@@ -673,7 +673,7 @@ Augeas lenses are bundled with osquery distributions. On Linux they are installe
 
 `--docker_socket=/var/run/docker.sock`
 
-Docker information for containers, networks, volumes, images etc is available in different tables. osquery uses docker's UNIX domain socket to invoke docker API calls. Provide the path to Docker's domain socket file. User running `osqueryd` / `osqueryi` should have permission to read the socket file.
+Docker information for containers, networks, volumes, images etc is available in different tables. osquery uses docker's UNIX domain socket to invoke docker API calls. Provide the path to Docker's domain socket file. User running `osqueryd` / `osqueryi` should have permission to read the socket file. If the flag is left at the default and `/var/run/docker.sock` does not exist, osquery falls back to `~/.docker/run/docker.sock` (the Docker Desktop location) when that file is present.
 
 ## Shell-only flags
 

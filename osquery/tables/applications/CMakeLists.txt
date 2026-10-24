@@ -84,6 +84,7 @@ function(generateOsqueryTablesApplications)
 
   if(DEFINED PLATFORM_POSIX)
     list(APPEND public_header_files
+      posix/docker_socket.h
       posix/prometheus_metrics.h
     )
 
@@ -96,6 +97,7 @@ function(generateOsqueryTablesApplications)
 
   if(DEFINED PLATFORM_POSIX)
     add_test(NAME osquery_tables_applications_posix_tests_prometheusmetricstests-test COMMAND osquery_tables_applications_posix_tests_prometheusmetricstests-test)
+    add_test(NAME osquery_tables_applications_posix_tests_dockersockettests-test COMMAND osquery_tables_applications_posix_tests_dockersockettests-test)
   endif()
 endfunction()
 

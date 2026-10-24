@@ -25,10 +25,14 @@
 
 #include <osquery/core/flags.h>
 #include <osquery/core/tables.h>
+#include <osquery/filesystem/fileops.h>
+#include <osquery/filesystem/filesystem.h>
 #include <osquery/logger/logger.h>
 #include <osquery/utils/conversions/join.h>
 #include <osquery/utils/info/platform_type.h>
 #include <osquery/utils/json/json.h>
+
+#include <osquery/tables/applications/posix/docker_socket.h>
 
 // When building on linux, the extended schema of docker_containers will
 // add some additional columns to support user namespaces
@@ -50,9 +54,31 @@ namespace osquery {
 FLAG(string,
      docker_socket,
      "/var/run/docker.sock",
-     "Docker UNIX domain socket path");
+     "Docker UNIX domain socket path. If left at the default and the file does"
+     " not exist, ~/.docker/run/docker.sock is used when present");
 
 namespace tables {
+
+std::string dockerSocketEndpoint() {
+  if (!Flag::isDefault("docker_socket")) {
+    return FLAGS_docker_socket;
+  }
+
+  if (pathExists(FLAGS_docker_socket).ok()) {
+    return FLAGS_docker_socket;
+  }
+
+  auto home = getHomeDirectory();
+  if (home) {
+    auto socket =
+        boost::filesystem::path(*home) / ".docker" / "run" / "docker.sock";
+    if (pathExists(socket).ok()) {
+      return socket.string();
+    }
+  }
+
+  return FLAGS_docker_socket;
+}
 
 /**
  * @brief Makes API calls to the docker UNIX socket.
@@ -66,7 +92,7 @@ Status dockerApi(const std::string& uri, pt::ptree& tree) {
   static const std::regex httpOkRegex("HTTP/1\\.(0|1) 200 OK\\\r");
 
   try {
-    local::stream_protocol::endpoint ep(FLAGS_docker_socket);
+    local::stream_protocol::endpoint ep(dockerSocketEndpoint());
     local::stream_protocol::iostream stream(ep);
     if (!stream) {
       return Status(
