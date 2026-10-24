@@ -25,6 +25,8 @@
 
 #include <osquery/core/flags.h>
 #include <osquery/core/tables.h>
+#include <osquery/filesystem/fileops.h>
+#include <osquery/filesystem/filesystem.h>
 #include <osquery/logger/logger.h>
 #include <osquery/utils/conversions/join.h>
 #include <osquery/utils/info/platform_type.h>
@@ -50,9 +52,39 @@ namespace osquery {
 FLAG(string,
      docker_socket,
      "/var/run/docker.sock",
-     "Docker UNIX domain socket path");
+     "Docker UNIX domain socket path. If left at the default and the file does"
+     " not exist, ~/.docker/run/docker.sock is used when present");
 
 namespace tables {
+
+/**
+ * @brief Resolve the docker socket path to connect to.
+ *
+ * Docker Desktop and Podman on macOS do not create /var/run/docker.sock;
+ * the API socket lives under the user home directory instead. When the flag
+ * is left at its default value, fall back to that user socket so the
+ * docker_ tables work without extra configuration.
+ */
+static std::string dockerSocketEndpoint() {
+  if (!Flag::isDefault("docker_socket")) {
+    return FLAGS_docker_socket;
+  }
+
+  if (pathExists(FLAGS_docker_socket).ok()) {
+    return FLAGS_docker_socket;
+  }
+
+  auto home = getHomeDirectory();
+  if (home) {
+    auto socket = boost::filesystem::path(*home) / ".docker" / "run" /
+                  "docker.sock";
+    if (pathExists(socket).ok()) {
+      return socket.string();
+    }
+  }
+
+  return FLAGS_docker_socket;
+}
 
 /**
  * @brief Makes API calls to the docker UNIX socket.
@@ -66,7 +98,7 @@ Status dockerApi(const std::string& uri, pt::ptree& tree) {
   static const std::regex httpOkRegex("HTTP/1\\.(0|1) 200 OK\\\r");
 
   try {
-    local::stream_protocol::endpoint ep(FLAGS_docker_socket);
+    local::stream_protocol::endpoint ep(dockerSocketEndpoint());
     local::stream_protocol::iostream stream(ep);
     if (!stream) {
       return Status(
